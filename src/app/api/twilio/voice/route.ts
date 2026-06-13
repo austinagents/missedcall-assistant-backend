@@ -31,9 +31,16 @@ function buildInboundVoicemailTwiml(user: UserRow | null): string {
   />`;
 
   if (user?.greeting_recording_url) {
+    const playUrl = toPlayableTwilioRecordingUrl(user.greeting_recording_url);
+
+    console.log("[Twilio] inbound greeting playback", {
+      greeting_recording_url: user.greeting_recording_url,
+      playUrl,
+    });
+
     return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Play>${escapeXml(user.greeting_recording_url)}</Play>
+  <Play>${escapeXml(playUrl)}</Play>
   ${recordVerb}
 </Response>`;
   }
@@ -97,6 +104,12 @@ function twimlResponse(twiml: string): Response {
 function formValue(formData: FormData, key: string): string | null {
   const value = formData.get(key);
   return typeof value === "string" ? value : null;
+}
+
+function toPlayableTwilioRecordingUrl(url: string): string {
+  if (url.endsWith(".mp3") || url.endsWith(".wav")) return url;
+  if (url.includes("/Recordings/RE")) return `${url}.mp3`;
+  return url;
 }
 
 function escapeXml(value: string): string {
