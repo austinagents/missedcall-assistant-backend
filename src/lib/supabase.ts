@@ -18,6 +18,9 @@ export type Database = {
           carrier: string | null;
           forwarding_number: string | null;
           forwarding_enabled: boolean;
+          assistant_number: string | null;
+          greeting_recording_url: string | null;
+          greeting_recording_sid: string | null;
           greeting_status: string;
           push_notifications_enabled: boolean;
           email_notifications_enabled: boolean;
@@ -32,6 +35,9 @@ export type Database = {
           carrier?: string | null;
           forwarding_number?: string | null;
           forwarding_enabled?: boolean;
+          assistant_number?: string | null;
+          greeting_recording_url?: string | null;
+          greeting_recording_sid?: string | null;
           greeting_status?: string;
           push_notifications_enabled?: boolean;
           email_notifications_enabled?: boolean;
@@ -44,6 +50,9 @@ export type Database = {
           carrier?: string | null;
           forwarding_number?: string | null;
           forwarding_enabled?: boolean;
+          assistant_number?: string | null;
+          greeting_recording_url?: string | null;
+          greeting_recording_sid?: string | null;
           greeting_status?: string;
           push_notifications_enabled?: boolean;
           email_notifications_enabled?: boolean;
