@@ -48,7 +48,19 @@ export async function POST(request: Request): Promise<Response> {
     return failure(updateError.message, 500);
   }
 
-  const callSid = await createGreetingImportCall(user.id, normalizedPhoneNumber);
+  let callSid: string;
+
+  try {
+    callSid = await createGreetingImportCall(user.id, normalizedPhoneNumber);
+  } catch (error) {
+    return Response.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Twilio greeting import call failed",
+      },
+      { status: 500 },
+    );
+  }
 
   return success({
     callSid,
