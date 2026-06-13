@@ -6,12 +6,14 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z
     .string()
     .min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
+  TELNYX_API_KEY: z.string().min(1, "TELNYX_API_KEY is required"),
 });
 
 const parsedEnv = envSchema.safeParse({
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  TELNYX_API_KEY: process.env.TELNYX_API_KEY,
 });
 
 if (!parsedEnv.success) {
