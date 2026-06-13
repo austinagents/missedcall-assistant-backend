@@ -1,6 +1,6 @@
 const texmlResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say>Missed Call Assistant is connected.</Say>
+  <Pause length="3"/>
   <Hangup/>
 </Response>`;
 
