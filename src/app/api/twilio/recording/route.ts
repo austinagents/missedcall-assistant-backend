@@ -9,8 +9,13 @@ type RecordingFields = {
   recordingSid: string | null;
   recordingUrl: string | null;
   recordingDuration: string | null;
+  recordingStatus: string | null;
+  recordingChannels: string | null;
+  recordingSource: string | null;
   from: string | null;
   to: string | null;
+  accountSid: string | null;
+  apiVersion: string | null;
 };
 
 export async function POST(request: Request): Promise<Response> {
@@ -21,13 +26,20 @@ export async function POST(request: Request): Promise<Response> {
   const fields = getRecordingFields(formData);
 
   console.log("[Twilio] recording callback", {
+    url: request.url,
     type,
+    userId,
     CallSid: fields.callSid,
     RecordingSid: fields.recordingSid,
     RecordingUrl: fields.recordingUrl,
     RecordingDuration: fields.recordingDuration,
+    RecordingStatus: fields.recordingStatus,
+    RecordingChannels: fields.recordingChannels,
+    RecordingSource: fields.recordingSource,
     From: fields.from,
     To: fields.to,
+    AccountSid: fields.accountSid,
+    ApiVersion: fields.apiVersion,
   });
 
   if (type === "greeting") {
@@ -45,7 +57,16 @@ async function saveGreetingRecording(
   userId: string | null,
   fields: RecordingFields,
 ): Promise<Response> {
+  console.log("[Twilio] saving greeting starts", {
+    userId,
+    RecordingSid: fields.recordingSid,
+    RecordingStatus: fields.recordingStatus,
+  });
+
   if (!userId) {
+    console.log("[Twilio] saving greeting fails", {
+      error: "Missing userId for greeting recording",
+    });
     return Response.json(
       { success: false, error: "Missing userId for greeting recording" },
       { status: 400 },
@@ -59,10 +80,15 @@ async function saveGreetingRecording(
     .maybeSingle();
 
   if (userError) {
+    console.log("[Twilio] saving greeting fails", { error: userError.message });
     return Response.json({ success: false, error: userError.message }, { status: 500 });
   }
 
   if (!user) {
+    console.log("[Twilio] saving greeting fails", {
+      error: "Invalid userId for greeting recording",
+      userId,
+    });
     return Response.json(
       { success: false, error: "Invalid userId for greeting recording" },
       { status: 400 },
@@ -79,6 +105,7 @@ async function saveGreetingRecording(
     .eq("id", user.id);
 
   if (updateError) {
+    console.log("[Twilio] saving greeting fails", { error: updateError.message });
     return Response.json({ success: false, error: updateError.message }, { status: 500 });
   }
 
@@ -88,6 +115,11 @@ async function saveGreetingRecording(
     eventDescription: "Recording saved",
   });
 
+  console.log("[Twilio] saving greeting succeeds", {
+    userId: user.id,
+    RecordingSid: fields.recordingSid,
+  });
+
   return Response.json({ success: true });
 }
 
@@ -95,9 +127,24 @@ async function saveVoicemailRecording(
   type: string,
   fields: RecordingFields,
 ): Promise<Response> {
+  console.log("[Twilio] saving voicemail starts", {
+    type,
+    To: fields.to,
+    From: fields.from,
+    RecordingSid: fields.recordingSid,
+    RecordingStatus: fields.recordingStatus,
+  });
+
   const user = await findUserForVoicemail(fields.to);
 
   if (!user) {
+    console.log("[Twilio] saving voicemail fails", {
+      error: "No user found for voicemail recording",
+      type,
+      To: fields.to,
+      CallSid: fields.callSid,
+      RecordingSid: fields.recordingSid,
+    });
     return Response.json(
       {
         success: false,
@@ -122,6 +169,7 @@ async function saveVoicemailRecording(
   });
 
   if (voicemailError) {
+    console.log("[Twilio] saving voicemail fails", { error: voicemailError.message });
     return Response.json({ success: false, error: voicemailError.message }, { status: 500 });
   }
 
@@ -129,6 +177,11 @@ async function saveVoicemailRecording(
     eventType: "voicemail_received",
     eventTitle: "Voicemail received",
     eventDescription: fields.from ?? "Unknown caller",
+  });
+
+  console.log("[Twilio] saving voicemail succeeds", {
+    userId: user.id,
+    RecordingSid: fields.recordingSid,
   });
 
   return Response.json({ success: true });
@@ -200,8 +253,13 @@ function getRecordingFields(formData: FormData): RecordingFields {
     recordingSid: formValue(formData, "RecordingSid"),
     recordingUrl: formValue(formData, "RecordingUrl"),
     recordingDuration: formValue(formData, "RecordingDuration"),
+    recordingStatus: formValue(formData, "RecordingStatus"),
+    recordingChannels: formValue(formData, "RecordingChannels"),
+    recordingSource: formValue(formData, "RecordingSource"),
     from: formValue(formData, "From"),
     to: formValue(formData, "To"),
+    accountSid: formValue(formData, "AccountSid"),
+    apiVersion: formValue(formData, "ApiVersion"),
   };
 }
 

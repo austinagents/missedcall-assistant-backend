@@ -37,12 +37,18 @@ export async function createGreetingImportCall(
   try {
     const callbackUrl = new URL("/api/twilio/greeting-capture", PRODUCTION_BASE_URL);
     callbackUrl.searchParams.set("userId", userId);
+    const statusCallbackUrl = new URL("/api/twilio/call-status", PRODUCTION_BASE_URL);
+    statusCallbackUrl.searchParams.set("type", "greeting-import");
+    statusCallbackUrl.searchParams.set("userId", userId);
 
     const body = new URLSearchParams({
       To: toPhoneNumber,
       From: env.TWILIO_PHONE_NUMBER,
       Url: callbackUrl.toString(),
       Method: "POST",
+      StatusCallback: statusCallbackUrl.toString(),
+      StatusCallbackMethod: "POST",
+      StatusCallbackEvent: "initiated ringing answered completed",
     });
 
     const response = await fetch(
