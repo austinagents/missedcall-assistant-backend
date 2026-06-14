@@ -30,6 +30,7 @@ type VoicemailInsights = {
 
 type ProcessedVoicemail = VoicemailInsights & {
   id: string;
+  caller_number: string | null;
   transcript: string;
 };
 
@@ -95,12 +96,13 @@ export async function processVoicemail(
       voicemailId,
       recordingSid,
     });
+    const callbackNumber = voicemail.caller_number;
 
     await updateVoicemail(voicemailId, {
       transcript,
       summary: insights.summary,
       caller_name: insights.caller_name,
-      callback_number: insights.callback_number,
+      callback_number: callbackNumber,
       urgency: insights.urgency,
       action_items: insights.action_items,
       processing_status: "completed",
@@ -114,8 +116,13 @@ export async function processVoicemail(
 
     const processedVoicemail = {
       id: voicemailId,
+      caller_number: voicemail.caller_number,
       transcript,
-      ...insights,
+      summary: insights.summary,
+      caller_name: insights.caller_name,
+      callback_number: callbackNumber,
+      urgency: insights.urgency,
+      action_items: insights.action_items,
     };
     const email = await sendProcessedEmail(voicemail, processedVoicemail);
 
