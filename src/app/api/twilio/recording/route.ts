@@ -3,6 +3,12 @@ import type { Database } from "@/lib/supabase";
 import { supabaseService } from "@/lib/supabase";
 
 type UserRow = Database["public"]["Tables"]["users"]["Row"];
+type VoicemailInsert = Database["public"]["Tables"]["voicemails"]["Insert"] & {
+  callback_number?: string | null;
+};
+type VoicemailInsertResult = {
+  error: { message: string } | null;
+};
 
 type RecordingFields = {
   callSid: string | null;
@@ -22,6 +28,7 @@ export async function POST(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const type = url.searchParams.get("type") ?? "voicemail";
   const userId = url.searchParams.get("userId");
+  const callerNumber = url.searchParams.get("callerNumber");
   const formData = await request.formData();
   const fields = getRecordingFields(formData);
 
@@ -29,6 +36,7 @@ export async function POST(request: Request): Promise<Response> {
     url: request.url,
     type,
     userId,
+    callerNumber,
     CallSid: fields.callSid,
     RecordingSid: fields.recordingSid,
     RecordingUrl: fields.recordingUrl,
@@ -46,7 +54,7 @@ export async function POST(request: Request): Promise<Response> {
     return saveGreetingRecording(userId, fields);
   }
 
-  return saveVoicemailRecording(type, fields);
+  return saveVoicemailRecording(type, fields, callerNumber);
 }
 
 export async function GET(): Promise<Response> {
@@ -126,11 +134,13 @@ async function saveGreetingRecording(
 async function saveVoicemailRecording(
   type: string,
   fields: RecordingFields,
+  callerNumber: string | null,
 ): Promise<Response> {
   console.log("[Twilio] saving voicemail starts", {
     type,
     To: fields.to,
     From: fields.from,
+    callerNumber,
     RecordingSid: fields.recordingSid,
     RecordingStatus: fields.recordingStatus,
   });
@@ -150,7 +160,7 @@ async function saveVoicemailRecording(
         success: false,
         error: "No user found for voicemail recording",
         type,
-        From: fields.from,
+        From: callerNumber ?? fields.from,
         To: fields.to,
         CallSid: fields.callSid,
         RecordingSid: fields.recordingSid,
@@ -159,14 +169,20 @@ async function saveVoicemailRecording(
     );
   }
 
-  const { error: voicemailError } = await supabaseService.from("voicemails").insert({
+  const voicemailInsert: VoicemailInsert = {
     user_id: user.id,
-    caller_number: fields.from,
+    caller_number: callerNumber || null,
+    callback_number: callerNumber || null,
     recording_url: fields.recordingUrl,
     duration_seconds: parseDurationSeconds(fields.recordingDuration),
     email_sent: false,
     push_sent: false,
-  });
+  };
+
+  const voicemailTable = supabaseService.from("voicemails") as unknown as {
+    insert(values: VoicemailInsert): Promise<VoicemailInsertResult>;
+  };
+  const { error: voicemailError } = await voicemailTable.insert(voicemailInsert);
 
   if (voicemailError) {
     console.log("[Twilio] saving voicemail fails", { error: voicemailError.message });
@@ -176,7 +192,7 @@ async function saveVoicemailRecording(
   await createActivityEvent(user.id, {
     eventType: "voicemail_received",
     eventTitle: "Voicemail received",
-    eventDescription: fields.from ?? "Unknown caller",
+    eventDescription: callerNumber ?? fields.from ?? "Unknown caller",
   });
 
   console.log("[Twilio] saving voicemail succeeds", {

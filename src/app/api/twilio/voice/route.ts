@@ -5,25 +5,26 @@ import { productionUrl } from "@/lib/twilio";
 
 type UserRow = Database["public"]["Tables"]["users"]["Row"];
 
-const voicemailRecordingCallback = productionUrl(
-  "/api/twilio/recording?type=voicemail",
-);
-
 export async function POST(request: Request): Promise<Response> {
   const formData = await request.formData();
   const toNumber = formValue(formData, "To");
+  const fromNumber = formValue(formData, "From");
   const user = await findUserForAssistantNumber(toNumber);
 
-  return twimlResponse(buildInboundVoicemailTwiml(user));
+  return twimlResponse(buildInboundVoicemailTwiml(user, fromNumber));
 }
 
 export async function GET(): Promise<Response> {
   const user = await findUserForAssistantNumber(null);
 
-  return twimlResponse(buildInboundVoicemailTwiml(user));
+  return twimlResponse(buildInboundVoicemailTwiml(user, null));
 }
 
-function buildInboundVoicemailTwiml(user: UserRow | null): string {
+function buildInboundVoicemailTwiml(
+  user: UserRow | null,
+  callerNumber: string | null,
+): string {
+  const voicemailRecordingCallback = buildVoicemailRecordingCallback(callerNumber);
   const recordVerb = `<Record
     maxLength="60"
     recordingStatusCallback="${escapeXml(voicemailRecordingCallback)}"
@@ -109,6 +110,16 @@ function twimlResponse(twiml: string): Response {
 function formValue(formData: FormData, key: string): string | null {
   const value = formData.get(key);
   return typeof value === "string" ? value : null;
+}
+
+function buildVoicemailRecordingCallback(callerNumber: string | null): string {
+  const path = callerNumber
+    ? `/api/twilio/recording?type=voicemail&callerNumber=${encodeURIComponent(
+        callerNumber,
+      )}`
+    : "/api/twilio/recording?type=voicemail";
+
+  return productionUrl(path);
 }
 
 function escapeXml(value: string): string {
