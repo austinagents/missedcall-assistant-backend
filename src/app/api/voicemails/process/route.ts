@@ -27,11 +27,12 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const voicemail = await processVoicemail(parsed.data.voicemailId);
+    const result = await processVoicemail(parsed.data.voicemailId);
 
     return Response.json({
       success: true,
-      voicemail,
+      voicemail: result.voicemail,
+      email: result.email,
     });
   } catch (error) {
     if (error instanceof VoicemailNotFoundError) {

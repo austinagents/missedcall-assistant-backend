@@ -1,11 +1,23 @@
 import { toFile } from "openai";
 import { z } from "zod";
 
+import {
+  sendVoicemailProcessedEmail,
+  type ProcessedVoicemailEmailInput,
+} from "./email-notifications";
 import { getOpenAIClient } from "./openai-client";
+import type { EmailSendResult } from "./resend-client";
 
 type VoicemailRow = {
   id: string;
+  user_id: string;
+  caller_number: string | null;
   recording_url: string | null;
+};
+
+type UserRow = {
+  id: string;
+  email: string | null;
 };
 
 type VoicemailInsights = {
@@ -21,6 +33,11 @@ type ProcessedVoicemail = VoicemailInsights & {
   transcript: string;
 };
 
+export type ProcessVoicemailResult = {
+  voicemail: ProcessedVoicemail;
+  email: EmailSendResult;
+};
+
 const insightsSchema = z.object({
   summary: z.string().trim().min(1),
   caller_name: z.string().trim().min(1).nullable(),
@@ -34,7 +51,7 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export async function processVoicemail(
   voicemailId: string,
-): Promise<ProcessedVoicemail> {
+): Promise<ProcessVoicemailResult> {
   console.log("[VoicemailProcess] start", { voicemailId });
 
   const voicemail = await loadVoicemail(voicemailId);
@@ -95,10 +112,20 @@ export async function processVoicemail(
       recordingSid,
     });
 
-    return {
+    const processedVoicemail = {
       id: voicemailId,
       transcript,
       ...insights,
+    };
+    const email = await sendProcessedEmail(voicemail, processedVoicemail);
+
+    if (email.sent) {
+      await updateVoicemail(voicemailId, { email_sent: true });
+    }
+
+    return {
+      voicemail: processedVoicemail,
+      email,
     };
   } catch (error) {
     await updateVoicemail(voicemailId, { processing_status: "failed" }).catch(
@@ -130,7 +157,7 @@ async function loadVoicemail(voicemailId: string): Promise<VoicemailRow> {
   const rows = await supabaseRequest<VoicemailRow[]>(
     `/rest/v1/voicemails?id=eq.${encodeURIComponent(
       voicemailId,
-    )}&select=id,recording_url`,
+    )}&select=id,user_id,caller_number,recording_url`,
   );
 
   const voicemail = rows[0];
@@ -142,9 +169,17 @@ async function loadVoicemail(voicemailId: string): Promise<VoicemailRow> {
   return voicemail;
 }
 
+async function loadUser(userId: string): Promise<UserRow | null> {
+  const rows = await supabaseRequest<UserRow[]>(
+    `/rest/v1/users?id=eq.${encodeURIComponent(userId)}&select=id,email`,
+  );
+
+  return rows[0] ?? null;
+}
+
 async function updateVoicemail(
   voicemailId: string,
-  body: Record<string, string | null>,
+  body: Record<string, string | boolean | null>,
 ): Promise<void> {
   await supabaseRequest(
     `/rest/v1/voicemails?id=eq.${encodeURIComponent(voicemailId)}`,
@@ -157,6 +192,29 @@ async function updateVoicemail(
       },
     },
   );
+}
+
+async function sendProcessedEmail(
+  voicemail: VoicemailRow,
+  processedVoicemail: ProcessedVoicemail,
+): Promise<EmailSendResult> {
+  try {
+    const user = await loadUser(voicemail.user_id);
+    const emailInput: ProcessedVoicemailEmailInput = {
+      callerNumber: voicemail.caller_number,
+      transcript: processedVoicemail.transcript,
+      summary: processedVoicemail.summary,
+      callerName: processedVoicemail.caller_name,
+      callbackNumber: processedVoicemail.callback_number,
+      urgency: processedVoicemail.urgency,
+      actionItems: processedVoicemail.action_items,
+      userEmail: user?.email ?? null,
+    };
+
+    return sendVoicemailProcessedEmail(emailInput);
+  } catch (error) {
+    return { sent: false, error: errorMessage(error) };
+  }
 }
 
 async function transcribeVoicemailAudio(recordingSid: string): Promise<string> {
