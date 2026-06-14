@@ -159,18 +159,49 @@ async function saveVoicemailRecording(
     );
   }
 
-  const { error: voicemailError } = await supabaseService.from("voicemails").insert({
+  const voicemailInsert = {
     user_id: user.id,
     caller_number: fields.from,
     recording_url: fields.recordingUrl,
+    recording_sid: fields.recordingSid,
+    call_sid: fields.callSid,
     duration_seconds: parseDurationSeconds(fields.recordingDuration),
     email_sent: false,
     push_sent: false,
-  });
+  };
+
+  let voicemailError = await insertVoicemail(voicemailInsert);
 
   if (voicemailError) {
-    console.log("[Twilio] saving voicemail fails", { error: voicemailError.message });
-    return Response.json({ success: false, error: voicemailError.message }, { status: 500 });
+    console.log("[Twilio] saving voicemail primary insert failed", {
+      error: voicemailError.message,
+    });
+
+    if (isMissingNewVoicemailColumnError(voicemailError.message)) {
+      console.log(
+        "[Twilio] saving voicemail retrying without recording_sid/call_sid",
+        { error: voicemailError.message },
+      );
+
+      voicemailError = await insertVoicemail({
+        user_id: user.id,
+        caller_number: fields.from,
+        recording_url: fields.recordingUrl,
+        duration_seconds: parseDurationSeconds(fields.recordingDuration),
+        email_sent: false,
+        push_sent: false,
+      });
+    }
+
+    if (voicemailError) {
+      console.log("[Twilio] saving voicemail fails", {
+        error: voicemailError.message,
+      });
+      return Response.json(
+        { success: false, error: voicemailError.message },
+        { status: 500 },
+      );
+    }
   }
 
   await createActivityEvent(user.id, {
@@ -185,6 +216,28 @@ async function saveVoicemailRecording(
   });
 
   return Response.json({ success: true });
+}
+
+async function insertVoicemail(
+  voicemail:
+    | Database["public"]["Tables"]["voicemails"]["Insert"]
+    | Omit<
+        Database["public"]["Tables"]["voicemails"]["Insert"],
+        "recording_sid" | "call_sid"
+      >,
+): Promise<{ message: string } | null> {
+  const { error } = await supabaseService.from("voicemails").insert(voicemail);
+
+  return error;
+}
+
+function isMissingNewVoicemailColumnError(message: string): boolean {
+  const normalized = message.toLowerCase();
+
+  return (
+    normalized.includes("recording_sid") ||
+    normalized.includes("call_sid")
+  );
 }
 
 async function findUserForVoicemail(toNumber: string | null): Promise<UserRow | null> {

@@ -51,6 +51,10 @@ export const voicemailCreateSchema = z.object({
   pushSent: z.boolean().optional(),
 });
 
+export const voicemailProcessSchema = z.object({
+  voicemailId: uuidSchema,
+});
+
 export const activityListQuerySchema = z.object({
   userId: uuidSchema,
 });

@@ -11,6 +11,7 @@ const envSchema = z.object({
   TWILIO_AUTH_TOKEN: z.string().min(1, "TWILIO_AUTH_TOKEN is required"),
   TWILIO_PHONE_NUMBER: z.string().min(1, "TWILIO_PHONE_NUMBER is required"),
   TEST_USER_ID: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
 });
 
 const parsedEnv = envSchema.safeParse({
@@ -22,6 +23,7 @@ const parsedEnv = envSchema.safeParse({
   TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
   TWILIO_PHONE_NUMBER: process.env.TWILIO_PHONE_NUMBER,
   TEST_USER_ID: process.env.TEST_USER_ID,
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
 });
 
 if (!parsedEnv.success) {
