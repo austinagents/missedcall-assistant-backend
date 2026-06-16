@@ -35,8 +35,9 @@ function buildGreetingCaptureTwiml(request: Request, method: "GET" | "POST"): st
     trim="trim-silence"
     recordingStatusCallback="${escapeXml(callbackUrl)}"
     recordingStatusCallbackMethod="POST"
-    recordingStatusCallbackEvent="completed absent failed"
+    recordingStatusCallbackEvent="completed"
   />
+  <Hangup/>
 </Response>`;
 }
 
