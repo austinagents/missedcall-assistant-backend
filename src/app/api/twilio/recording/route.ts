@@ -1,12 +1,16 @@
+import { after } from "next/server";
+
 import { env } from "@/lib/env";
 import type { Database } from "@/lib/supabase";
 import { supabaseService } from "@/lib/supabase";
+import { processVoicemail } from "@/lib/voicemail-processing";
 
 type UserRow = Database["public"]["Tables"]["users"]["Row"];
 type VoicemailInsert = Database["public"]["Tables"]["voicemails"]["Insert"] & {
   callback_number?: string | null;
 };
 type VoicemailInsertResult = {
+  data: { id: string } | null;
   error: { message: string } | null;
 };
 
@@ -71,6 +75,23 @@ async function saveGreetingRecording(
     RecordingStatus: fields.recordingStatus,
   });
 
+  if (fields.recordingStatus !== "completed") {
+    return ignoreGreetingRecording("RecordingStatus is not completed", userId, fields);
+  }
+
+  if (!fields.recordingSid) {
+    return ignoreGreetingRecording("Missing RecordingSid", userId, fields);
+  }
+
+  if (!fields.recordingUrl) {
+    return ignoreGreetingRecording("Missing RecordingUrl", userId, fields);
+  }
+
+  const durationSeconds = parseDurationSeconds(fields.recordingDuration);
+  if (durationSeconds === 0) {
+    return ignoreGreetingRecording("Zero-duration recording", userId, fields);
+  }
+
   if (!userId) {
     console.log("[Twilio] saving greeting fails", {
       error: "Missing userId for greeting recording",
@@ -103,6 +124,14 @@ async function saveGreetingRecording(
     );
   }
 
+  if (user.greeting_recording_sid) {
+    return ignoreGreetingRecording(
+      "Duplicate greeting callback ignored because user already has greeting_recording_sid",
+      user.id,
+      fields,
+    );
+  }
+
   const { error: updateError } = await supabaseService
     .from("users")
     .update({
@@ -129,6 +158,24 @@ async function saveGreetingRecording(
   });
 
   return Response.json({ success: true });
+}
+
+function ignoreGreetingRecording(
+  reason: string,
+  userId: string | null,
+  fields: RecordingFields,
+): Response {
+  console.log("[Twilio] greeting recording ignored", {
+    reason,
+    userId,
+    CallSid: fields.callSid,
+    RecordingSid: fields.recordingSid,
+    RecordingUrl: fields.recordingUrl,
+    RecordingDuration: fields.recordingDuration,
+    RecordingStatus: fields.recordingStatus,
+  });
+
+  return Response.json({ success: true, ignored: true, reason });
 }
 
 async function saveVoicemailRecording(
@@ -180,9 +227,16 @@ async function saveVoicemailRecording(
   };
 
   const voicemailTable = supabaseService.from("voicemails") as unknown as {
-    insert(values: VoicemailInsert): Promise<VoicemailInsertResult>;
+    insert(values: VoicemailInsert): {
+      select(columns: string): {
+        single(): Promise<VoicemailInsertResult>;
+      };
+    };
   };
-  const { error: voicemailError } = await voicemailTable.insert(voicemailInsert);
+  const { data: voicemail, error: voicemailError } = await voicemailTable
+    .insert(voicemailInsert)
+    .select("id")
+    .single();
 
   if (voicemailError) {
     console.log("[Twilio] saving voicemail fails", { error: voicemailError.message });
@@ -197,10 +251,28 @@ async function saveVoicemailRecording(
 
   console.log("[Twilio] saving voicemail succeeds", {
     userId: user.id,
+    voicemailId: voicemail?.id,
     RecordingSid: fields.recordingSid,
   });
 
+  if (type === "voicemail" && voicemail?.id) {
+    scheduleVoicemailProcessing(voicemail.id);
+  }
+
   return Response.json({ success: true });
+}
+
+function scheduleVoicemailProcessing(voicemailId: string): void {
+  after(async () => {
+    try {
+      await processVoicemail(voicemailId);
+    } catch (error) {
+      console.log("[Twilio] automatic voicemail processing failed", {
+        voicemailId,
+        error: error instanceof Error ? error.message : "Unknown processing error",
+      });
+    }
+  });
 }
 
 async function findUserForVoicemail(toNumber: string | null): Promise<UserRow | null> {

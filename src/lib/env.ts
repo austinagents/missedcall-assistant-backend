@@ -6,7 +6,7 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z
     .string()
     .min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
-  TELNYX_API_KEY: z.string().min(1, "TELNYX_API_KEY is required"),
+  TELNYX_API_KEY: z.string().optional(),
   TWILIO_ACCOUNT_SID: z.string().min(1, "TWILIO_ACCOUNT_SID is required"),
   TWILIO_AUTH_TOKEN: z.string().min(1, "TWILIO_AUTH_TOKEN is required"),
   TWILIO_PHONE_NUMBER: z.string().min(1, "TWILIO_PHONE_NUMBER is required"),

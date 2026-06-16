@@ -28,6 +28,11 @@ async function sendCallControlCommand(
   command: TelnyxCommandName,
   body?: TelnyxCommandBody,
 ): Promise<void> {
+  if (!env.TELNYX_API_KEY) {
+    console.log(`[Telnyx] command=${command} skipped: TELNYX_API_KEY is not configured`);
+    return;
+  }
+
   const url = `${TELNYX_API_BASE_URL}/calls/${encodeURIComponent(
     callControlId,
   )}/actions/${command}`;

@@ -18,6 +18,7 @@ type VoicemailRow = {
 type UserRow = {
   id: string;
   email: string | null;
+  email_notifications_enabled: boolean;
 };
 
 type VoicemailInsights = {
@@ -178,7 +179,9 @@ async function loadVoicemail(voicemailId: string): Promise<VoicemailRow> {
 
 async function loadUser(userId: string): Promise<UserRow | null> {
   const rows = await supabaseRequest<UserRow[]>(
-    `/rest/v1/users?id=eq.${encodeURIComponent(userId)}&select=id,email`,
+    `/rest/v1/users?id=eq.${encodeURIComponent(
+      userId,
+    )}&select=id,email,email_notifications_enabled`,
   );
 
   return rows[0] ?? null;
@@ -207,6 +210,11 @@ async function sendProcessedEmail(
 ): Promise<EmailSendResult> {
   try {
     const user = await loadUser(voicemail.user_id);
+
+    if (!user?.email_notifications_enabled) {
+      return { sent: false, error: "Email notifications disabled" };
+    }
+
     const emailInput: ProcessedVoicemailEmailInput = {
       callerNumber: voicemail.caller_number,
       transcript: processedVoicemail.transcript,
