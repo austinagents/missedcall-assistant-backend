@@ -1,22 +1,52 @@
 import { productionUrl } from "@/lib/twilio";
+import { supabaseService } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-export function GET(request: Request): Response {
-  const twiml = buildGreetingCaptureTwiml(request, "GET");
-  return twimlResponse(twiml);
+export async function GET(request: Request): Promise<Response> {
+  return handleGreetingCapture(request, "GET");
 }
 
-export function POST(request: Request): Response {
-  const twiml = buildGreetingCaptureTwiml(request, "POST");
-  return twimlResponse(twiml);
+export async function POST(request: Request): Promise<Response> {
+  return handleGreetingCapture(request, "POST");
 }
 
-function buildGreetingCaptureTwiml(request: Request, method: "GET" | "POST"): string {
+async function handleGreetingCapture(
+  request: Request,
+  method: "GET" | "POST",
+): Promise<Response> {
   const url = new URL(request.url);
   const userId = url.searchParams.get("userId") ?? "";
+  const done = url.searchParams.get("done") === "1";
+
+  if (done) {
+    console.log("[Twilio] greeting-capture done", {
+      method,
+      url: request.url,
+      userId,
+    });
+    return twimlResponse(buildHangupTwiml());
+  }
+
+  const clearError = await clearExistingGreeting(userId);
+  if (clearError) {
+    return Response.json({ success: false, error: clearError }, { status: 500 });
+  }
+
+  const twiml = buildGreetingCaptureTwiml(request, method, userId);
+  return twimlResponse(twiml);
+}
+
+function buildGreetingCaptureTwiml(
+  request: Request,
+  method: "GET" | "POST",
+  userId: string,
+): string {
   const callbackUrl = productionUrl(
     `/api/twilio/recording?type=greeting&userId=${encodeURIComponent(userId)}`,
+  );
+  const actionUrl = productionUrl(
+    `/api/twilio/greeting-capture?userId=${encodeURIComponent(userId)}&done=1`,
   );
 
   console.log("[Twilio] greeting-capture hit", {
@@ -24,21 +54,55 @@ function buildGreetingCaptureTwiml(request: Request, method: "GET" | "POST"): st
     url: request.url,
     userId,
     recordingCallbackUrl: callbackUrl,
+    actionUrl,
   });
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Record
-    action="${escapeXml(callbackUrl)}"
+    action="${escapeXml(actionUrl)}"
     method="POST"
-    maxLength="45"
-    timeout="10"
+    maxLength="15"
+    timeout="3"
     playBeep="false"
-    trim="do-not-trim"
+    trim="trim-silence"
     recordingStatusCallback="${escapeXml(callbackUrl)}"
     recordingStatusCallbackMethod="POST"
-    recordingStatusCallbackEvent="completed absent failed"
+    recordingStatusCallbackEvent="completed"
   />
+  <Hangup/>
+</Response>`;
+}
+
+async function clearExistingGreeting(userId: string): Promise<string | null> {
+  if (!userId) {
+    return null;
+  }
+
+  const { error } = await supabaseService
+    .from("users")
+    .update({
+      greeting_recording_sid: null,
+      greeting_recording_url: null,
+    })
+    .eq("id", userId);
+
+  if (error) {
+    console.log("[Twilio] greeting-capture clear failed", {
+      userId,
+      error: error.message,
+    });
+    return error.message;
+  }
+
+  console.log("[Twilio] greeting-capture cleared existing greeting", { userId });
+  return null;
+}
+
+function buildHangupTwiml(): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Hangup/>
 </Response>`;
 }
 
