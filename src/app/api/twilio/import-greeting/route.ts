@@ -9,12 +9,7 @@ import { createGreetingImportCall } from "@/lib/twilio";
 export const dynamic = "force-dynamic";
 
 const importGreetingSchema = z.object({
-  userId: z.uuid({
-    error: (issue) =>
-      issue.input === undefined
-        ? "Missing userId for greeting import"
-        : "Invalid userId for greeting import",
-  }),
+  userId: z.uuid(),
   phoneNumber: z.string().trim().min(1),
 });
 
