@@ -75,10 +75,6 @@ async function saveGreetingRecording(
     RecordingStatus: fields.recordingStatus,
   });
 
-  if (fields.recordingStatus !== "completed") {
-    return ignoreGreetingRecording("RecordingStatus is not completed", userId, fields);
-  }
-
   if (!fields.recordingSid) {
     return ignoreGreetingRecording("Missing RecordingSid", userId, fields);
   }
@@ -96,10 +92,7 @@ async function saveGreetingRecording(
     console.log("[Twilio] saving greeting fails", {
       error: "Missing userId for greeting recording",
     });
-    return Response.json(
-      { success: false, error: "Missing userId for greeting recording" },
-      { status: 400 },
-    );
+    return twimlHangupResponse();
   }
 
   const { data: user, error: userError } = await supabaseService
@@ -110,7 +103,7 @@ async function saveGreetingRecording(
 
   if (userError) {
     console.log("[Twilio] saving greeting fails", { error: userError.message });
-    return Response.json({ success: false, error: userError.message }, { status: 500 });
+    return twimlHangupResponse();
   }
 
   if (!user) {
@@ -118,18 +111,7 @@ async function saveGreetingRecording(
       error: "Invalid userId for greeting recording",
       userId,
     });
-    return Response.json(
-      { success: false, error: "Invalid userId for greeting recording" },
-      { status: 400 },
-    );
-  }
-
-  if (user.greeting_recording_sid) {
-    return ignoreGreetingRecording(
-      "Duplicate greeting callback ignored because user already has greeting_recording_sid",
-      user.id,
-      fields,
-    );
+    return twimlHangupResponse();
   }
 
   const { error: updateError } = await supabaseService
@@ -143,7 +125,7 @@ async function saveGreetingRecording(
 
   if (updateError) {
     console.log("[Twilio] saving greeting fails", { error: updateError.message });
-    return Response.json({ success: false, error: updateError.message }, { status: 500 });
+    return twimlHangupResponse();
   }
 
   await createActivityEvent(user.id, {
@@ -157,7 +139,7 @@ async function saveGreetingRecording(
     RecordingSid: fields.recordingSid,
   });
 
-  return Response.json({ success: true });
+  return twimlHangupResponse();
 }
 
 function ignoreGreetingRecording(
@@ -175,7 +157,19 @@ function ignoreGreetingRecording(
     RecordingStatus: fields.recordingStatus,
   });
 
-  return Response.json({ success: true, ignored: true, reason });
+  return twimlHangupResponse();
+}
+
+function twimlHangupResponse(): Response {
+  return new Response(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Hangup/>
+</Response>`, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/xml; charset=utf-8",
+    },
+  });
 }
 
 async function saveVoicemailRecording(

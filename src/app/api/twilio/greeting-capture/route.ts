@@ -28,10 +28,13 @@ function buildGreetingCaptureTwiml(request: Request, method: "GET" | "POST"): st
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
+  <Say>Please record your WhoCalled greeting after the tone. Hang up when finished.</Say>
   <Record
-    maxLength="15"
-    timeout="3"
-    playBeep="false"
+    action="${escapeXml(callbackUrl)}"
+    method="POST"
+    maxLength="30"
+    timeout="5"
+    playBeep="true"
     trim="trim-silence"
     recordingStatusCallback="${escapeXml(callbackUrl)}"
     recordingStatusCallbackMethod="POST"
