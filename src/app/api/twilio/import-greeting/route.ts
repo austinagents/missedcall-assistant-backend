@@ -20,10 +20,25 @@ export async function POST(request: Request): Promise<Response> {
     return body.response;
   }
 
+  const requestUserId = body.data.userId;
+  const normalizedPhoneNumber = normalizeUsPhoneNumber(body.data.phoneNumber);
+
+  const { data: phoneUser, error: phoneUserError } = await supabaseService
+    .from("users")
+    .select()
+    .eq("phone_number", normalizedPhoneNumber)
+    .maybeSingle();
+
+  if (phoneUserError) {
+    return failure(phoneUserError.message, 500);
+  }
+
+  const resolvedUserId = phoneUser?.id ?? requestUserId;
+
   const { data: user, error: userError } = await supabaseService
     .from("users")
     .select()
-    .eq("id", body.data.userId)
+    .eq("id", resolvedUserId)
     .maybeSingle();
 
   if (userError) {
@@ -34,7 +49,11 @@ export async function POST(request: Request): Promise<Response> {
     return failure("User not found", 404);
   }
 
-  const normalizedPhoneNumber = normalizeUsPhoneNumber(body.data.phoneNumber);
+  console.log("[Twilio] import-greeting resolved user", {
+    requestUserId,
+    phoneNumber: normalizedPhoneNumber,
+    resolvedUserId: user.id,
+  });
 
   const { error: updateError } = await supabaseService
     .from("users")
@@ -65,5 +84,6 @@ export async function POST(request: Request): Promise<Response> {
   return success({
     callSid,
     to: normalizedPhoneNumber,
+    resolvedUserId: user.id,
   });
 }
