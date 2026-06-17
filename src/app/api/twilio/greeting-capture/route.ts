@@ -19,8 +19,13 @@ function buildGreetingCaptureTwiml(request: Request): string {
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Pause length="45"/>
-  <Hangup/>
+  <Record
+    maxLength="30"
+    timeout="10"
+    playBeep="false"
+    recordingStatusCallback="${escapeXml(callbackUrl)}"
+    recordingStatusCallbackMethod="POST"
+  />
 </Response>`;
 }
 
