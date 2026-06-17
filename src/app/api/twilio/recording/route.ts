@@ -75,23 +75,6 @@ async function saveGreetingRecording(
     RecordingStatus: fields.recordingStatus,
   });
 
-  if (fields.recordingStatus !== "completed") {
-    return ignoreGreetingRecording("RecordingStatus is not completed", userId, fields);
-  }
-
-  if (!fields.recordingSid) {
-    return ignoreGreetingRecording("Missing RecordingSid", userId, fields);
-  }
-
-  if (!fields.recordingUrl) {
-    return ignoreGreetingRecording("Missing RecordingUrl", userId, fields);
-  }
-
-  const durationSeconds = parseDurationSeconds(fields.recordingDuration);
-  if (durationSeconds === 0) {
-    return ignoreGreetingRecording("Zero-duration recording", userId, fields);
-  }
-
   if (!userId) {
     console.log("[Twilio] saving greeting fails", {
       error: "Missing userId for greeting recording",
@@ -124,14 +107,6 @@ async function saveGreetingRecording(
     );
   }
 
-  if (user.greeting_recording_sid) {
-    return ignoreGreetingRecording(
-      "Duplicate greeting callback ignored because user already has greeting_recording_sid",
-      user.id,
-      fields,
-    );
-  }
-
   const { error: updateError } = await supabaseService
     .from("users")
     .update({
@@ -158,24 +133,6 @@ async function saveGreetingRecording(
   });
 
   return Response.json({ success: true });
-}
-
-function ignoreGreetingRecording(
-  reason: string,
-  userId: string | null,
-  fields: RecordingFields,
-): Response {
-  console.log("[Twilio] greeting recording ignored", {
-    reason,
-    userId,
-    CallSid: fields.callSid,
-    RecordingSid: fields.recordingSid,
-    RecordingUrl: fields.recordingUrl,
-    RecordingDuration: fields.recordingDuration,
-    RecordingStatus: fields.recordingStatus,
-  });
-
-  return Response.json({ success: true, ignored: true, reason });
 }
 
 async function saveVoicemailRecording(
