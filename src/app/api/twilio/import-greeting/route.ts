@@ -20,12 +20,10 @@ export async function POST(request: Request): Promise<Response> {
     return body.response;
   }
 
-  const targetUserId = env.TEST_USER_ID ?? body.data.userId;
-
   const { data: user, error: userError } = await supabaseService
     .from("users")
     .select()
-    .eq("id", targetUserId)
+    .eq("id", body.data.userId)
     .maybeSingle();
 
   if (userError) {
