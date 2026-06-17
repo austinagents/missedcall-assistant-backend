@@ -75,7 +75,7 @@ async function saveGreetingRecording(
     RecordingStatus: fields.recordingStatus,
   });
 
-  if (fields.recordingStatus && fields.recordingStatus !== "completed") {
+  if (fields.recordingStatus !== "completed") {
     return ignoreGreetingRecording("RecordingStatus is not completed", userId, fields);
   }
 
