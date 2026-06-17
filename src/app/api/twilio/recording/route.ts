@@ -107,6 +107,20 @@ async function saveGreetingRecording(
     );
   }
 
+  if (user.greeting_recording_sid) {
+    console.log("[Twilio] greeting recording ignored", {
+      reason: "User already has greeting_recording_sid",
+      userId: user.id,
+      existingGreetingRecordingSid: user.greeting_recording_sid,
+      RecordingSid: fields.recordingSid,
+    });
+    return Response.json({
+      success: true,
+      ignored: true,
+      reason: "User already has greeting_recording_sid",
+    });
+  }
+
   const { error: updateError } = await supabaseService
     .from("users")
     .update({

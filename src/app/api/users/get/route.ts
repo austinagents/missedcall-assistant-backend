@@ -1,4 +1,5 @@
 import { databaseFailure, failure, parseSearchParams, success } from "@/lib/api";
+import { env } from "@/lib/env";
 import { userGetQuerySchema } from "@/lib/schemas";
 import { supabaseService } from "@/lib/supabase";
 
@@ -11,10 +12,12 @@ export async function GET(request: Request): Promise<Response> {
     return query.response;
   }
 
+  const targetUserId = env.TEST_USER_ID ?? query.data.id;
+
   const { data, error } = await supabaseService
     .from("users")
     .select()
-    .eq("id", query.data.id)
+    .eq("id", targetUserId)
     .maybeSingle();
 
   if (error) {
