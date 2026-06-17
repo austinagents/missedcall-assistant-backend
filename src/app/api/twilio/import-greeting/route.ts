@@ -41,6 +41,8 @@ export async function POST(request: Request): Promise<Response> {
     .update({
       phone_number: normalizedPhoneNumber,
       assistant_number: user.assistant_number ?? env.TWILIO_PHONE_NUMBER,
+      greeting_recording_sid: null,
+      greeting_recording_url: null,
     })
     .eq("id", user.id);
 

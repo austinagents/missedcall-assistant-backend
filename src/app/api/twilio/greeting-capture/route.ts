@@ -29,10 +29,12 @@ function buildGreetingCaptureTwiml(request: Request, method: "GET" | "POST"): st
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Record
-    maxLength="15"
-    timeout="3"
+    action="${escapeXml(callbackUrl)}"
+    method="POST"
+    maxLength="45"
+    timeout="10"
     playBeep="false"
-    trim="trim-silence"
+    trim="do-not-trim"
     recordingStatusCallback="${escapeXml(callbackUrl)}"
     recordingStatusCallbackMethod="POST"
     recordingStatusCallbackEvent="completed absent failed"
