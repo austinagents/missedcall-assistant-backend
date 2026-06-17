@@ -67,5 +67,6 @@ export async function POST(request: Request): Promise<Response> {
   return success({
     callSid,
     to: normalizedPhoneNumber,
+    userId: user.id,
   });
 }
